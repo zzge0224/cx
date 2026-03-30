@@ -530,102 +530,94 @@
 
 <!-- ===== REPLY LIBRARY MODAL ===== -->
 <div class="modal hidden" id="reply-modal">
-    <div class="modal-overlay" data-close="reply-modal"></div>
+    <div class="modal-overlay" id="reply-modal-overlay"></div>
     <div class="modal-sheet">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h3>词条库</h3>
-            <button class="modal-close" data-close="reply-modal"><i class="fas fa-times"></i></button>
+            <button class="rl-header-close" id="reply-modal-close"><i class="fas fa-times"></i></button>
         </div>
-        <div class="modal-body">
-            <div class="tabs">
-                <button class="tab active" data-tab="reply-list">词条管理</button>
-                <button class="tab" data-tab="reply-settings">回复设置</button>
+        <div class="rl-body">
+
+            <!-- 添加区 -->
+            <div class="rl-add-form">
+                <textarea id="rl-add-input" class="rl-add-input" placeholder="输入词条内容…" rows="2"></textarea>
+                <button id="rl-add-btn" class="rl-add-btn">
+                    <i class="fas fa-plus"></i> 添加
+                </button>
             </div>
 
-            <!-- 词条管理 Tab -->
-            <div class="tab-panel active" id="tab-reply-list">
-                <div class="rl-add-form">
-                    <textarea id="rl-add-input" class="rl-add-input" placeholder="输入词条内容，支持多行…" rows="2"></textarea>
-                    <button id="rl-add-btn" class="rl-add-btn">
-                        <i class="fas fa-plus"></i> 添加
+            <!-- 工具栏 -->
+            <div class="rl-toolbar">
+                <span id="rl-count" class="rl-count-label">共 0 条</span>
+                <div class="rl-toolbar-btns">
+                    <button id="rl-import-btn" class="rl-tool-btn" title="批量导入">
+                        <i class="fas fa-file-import"></i>
+                    </button>
+                    <button id="rl-export-btn" class="rl-tool-btn" title="导出">
+                        <i class="fas fa-file-export"></i>
+                    </button>
+                    <button id="rl-reset-btn" class="rl-tool-btn" title="恢复默认">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button id="rl-clear-btn" class="rl-tool-btn danger" title="清空">
+                        <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
-                <div class="rl-bulk-row">
-                    <button id="rl-import-btn" class="rl-bulk-btn">
-                        <i class="fas fa-file-import"></i> 批量导入
-                    </button>
-                    <button id="rl-export-btn" class="rl-bulk-btn">
-                        <i class="fas fa-file-export"></i> 导出
-                    </button>
-                    <button id="rl-reset-btn" class="rl-bulk-btn">
-                        <i class="fas fa-undo"></i> 恢复默认
-                    </button>
-                    <button id="rl-clear-btn" class="rl-bulk-btn danger">
-                        <i class="fas fa-trash-alt"></i> 清空
-                    </button>
-                </div>
-                <div class="rl-count-bar">
-                    <span id="rl-count">共 0 条</span>
-                    <span class="rl-count-tip">长按词条可预览发送</span>
-                </div>
-                <div class="rl-list" id="rl-list"></div>
             </div>
 
-            <!-- 回复设置 Tab -->
-            <div class="tab-panel" id="tab-reply-settings">
-                <div class="setting-group">
-                    <div class="setting-label">自动回复</div>
-                    <div class="rl-toggle-row">
-                        <div class="rl-toggle-desc">
-                            <span class="rl-toggle-title">开启自动回复</span>
-                            <span class="rl-toggle-sub">发送消息后，对方自动从词条库回复</span>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="auto-reply-toggle">
-                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                        </label>
-                    </div>
+            <!-- 自动回复开关 -->
+            <div class="rl-auto-row">
+                <div class="rl-auto-label">
+                    <span class="rl-auto-title">自动回复</span>
+                    <span class="rl-auto-sub">发消息后对方从词条库随机回复</span>
                 </div>
-                <div class="setting-group" id="reply-settings-detail">
-                    <div class="setting-label">回复延迟</div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="auto-reply-toggle">
+                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                </label>
+            </div>
+
+            <!-- 延迟 & 条数 -->
+            <div class="rl-setting-rows" id="rl-setting-rows">
+                <div class="rl-setting-row">
+                    <span class="rl-setting-name">延迟</span>
                     <div class="rl-option-row" id="delay-options">
-                        <button class="rl-option-btn" data-delay="500">0.5秒</button>
-                        <button class="rl-option-btn active" data-delay="1500">1.5秒</button>
-                        <button class="rl-option-btn" data-delay="3000">3秒</button>
-                        <button class="rl-option-btn" data-delay="5000">5秒</button>
+                        <button class="rl-option-btn" data-delay="500">0.5s</button>
+                        <button class="rl-option-btn active" data-delay="1500">1.5s</button>
+                        <button class="rl-option-btn" data-delay="3000">3s</button>
+                        <button class="rl-option-btn" data-delay="5000">5s</button>
                     </div>
-                    <div class="setting-label" style="margin-top:16px">每次回复条数</div>
+                </div>
+                <div class="rl-setting-row">
+                    <span class="rl-setting-name">条数</span>
                     <div class="rl-option-row" id="count-options">
                         <button class="rl-option-btn active" data-count="1">1条</button>
                         <button class="rl-option-btn" data-count="2">2条</button>
                         <button class="rl-option-btn" data-count="3">3条</button>
                     </div>
-                    <div class="rl-preview-box" id="rl-preview-box">
-                        <div class="rl-preview-label"><i class="fas fa-random"></i> 随机预览</div>
-                        <div class="rl-preview-content" id="rl-preview-content">点击下方按钮预览随机词条</div>
-                        <button class="rl-preview-btn" id="rl-preview-btn">
-                            <i class="fas fa-dice"></i> 随机抽取
-                        </button>
-                    </div>
                 </div>
             </div>
+
+            <!-- 词条列表 -->
+            <div class="rl-list" id="rl-list"></div>
+
         </div>
     </div>
 </div>
 
 <!-- ===== BULK IMPORT MODAL ===== -->
 <div class="modal hidden" id="rl-import-modal">
-    <div class="modal-overlay" data-close="rl-import-modal"></div>
+    <div class="modal-overlay" id="rl-import-overlay"></div>
     <div class="modal-sheet" style="max-height:75vh">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h3>批量导入词条</h3>
-            <button class="modal-close" data-close="rl-import-modal"><i class="fas fa-times"></i></button>
+            <button class="rl-header-close" id="rl-import-close"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
             <p class="rl-import-tip">每行一条词条，空行将被跳过</p>
-            <textarea id="rl-import-textarea" class="rl-import-textarea" placeholder="在此粘贴词条，每行一条…" rows="12"></textarea>
+            <textarea id="rl-import-textarea" class="rl-import-textarea" placeholder="在此粘贴词条，每行一条…" rows="10"></textarea>
             <button id="rl-import-confirm" class="save-btn" style="margin-top:12px">
                 <i class="fas fa-check"></i> 确认导入
             </button>

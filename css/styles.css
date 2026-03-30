@@ -2127,15 +2127,41 @@ html[data-theme="light"] .toast {
 }
 
 /* ============================================================
-   REPLY LIBRARY
+   REPLY LIBRARY  (flat layout, no tabs)
    ============================================================ */
 
-/* Add form */
+/* Modal 关闭按钮（不使用通用 modal-close 避免与设置弹窗的样式互扰） */
+.rl-header-close {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--bg3);
+    border: none;
+    cursor: pointer;
+    color: var(--fg2);
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+.rl-header-close:active { background: var(--border); }
+
+/* 弹窗主体（独立滚动，不继承 .modal-body 的 padding） */
+.rl-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    padding: 14px 18px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* 添加区 */
 .rl-add-form {
     display: flex;
     gap: 8px;
     align-items: flex-start;
-    margin-bottom: 12px;
 }
 .rl-add-input {
     flex: 1;
@@ -2144,16 +2170,17 @@ html[data-theme="light"] .toast {
     background: var(--bg3);
     border: 1.5px solid transparent;
     outline: none;
-    font-size: 14px;
+    font-size: 15px;
     font-family: var(--font);
     color: var(--fg);
     resize: none;
     line-height: 1.5;
     transition: border-color 0.2s;
+    min-height: 44px;
 }
-.rl-add-input:focus { border-color: rgba(var(--accent-rgb,244,166,179),0.5); }
+.rl-add-input:focus { border-color: rgba(var(--accent-rgb,244,166,179),0.55); }
 .rl-add-btn {
-    padding: 10px 14px;
+    padding: 11px 15px;
     border-radius: 12px;
     background: var(--accent);
     border: none;
@@ -2166,104 +2193,186 @@ html[data-theme="light"] .toast {
     align-items: center;
     gap: 5px;
     white-space: nowrap;
-    transition: all 0.2s;
     flex-shrink: 0;
     align-self: flex-start;
-    margin-top: 1px;
     box-shadow: 0 3px 10px rgba(var(--accent-rgb,244,166,179),0.35);
+    transition: all 0.2s;
 }
 .rl-add-btn:active { transform: scale(0.96); }
 
-/* Bulk actions */
-.rl-bulk-row {
+/* 工具栏（条数 + 图标按钮） */
+.rl-toolbar {
     display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 10px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
-.rl-bulk-btn {
-    padding: 7px 12px;
+.rl-count-label {
+    font-size: 13px;
+    color: var(--fg2);
+    font-weight: 500;
+}
+.rl-toolbar-btns {
+    display: flex;
+    gap: 4px;
+}
+.rl-tool-btn {
+    width: 34px; height: 34px;
     border-radius: 10px;
     background: var(--bg3);
     border: none;
     cursor: pointer;
-    font-size: 12px;
-    font-family: var(--font);
     color: var(--fg2);
+    font-size: 14px;
     display: flex;
     align-items: center;
-    gap: 5px;
-    transition: all 0.2s;
+    justify-content: center;
+    transition: all 0.15s;
 }
-.rl-bulk-btn:active { transform: scale(0.96); background: var(--border); }
-.rl-bulk-btn.danger { color: #e05252; }
-.rl-bulk-btn i { font-size: 11px; }
+.rl-tool-btn:active { background: var(--border); color: var(--fg); transform: scale(0.93); }
+.rl-tool-btn.danger:active { color: #e05252; }
 
-/* Count bar */
-.rl-count-bar {
+/* 自动回复开关行 */
+.rl-auto-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 10px;
-    padding: 0 2px;
+    gap: 12px;
+    background: var(--bg3);
+    border-radius: 14px;
+    padding: 12px 14px;
 }
-#rl-count {
+.rl-auto-label { flex: 1; }
+.rl-auto-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--fg);
+}
+.rl-auto-sub {
+    display: block;
     font-size: 12px;
     color: var(--fg3);
-    font-weight: 500;
-}
-.rl-count-tip {
-    font-size: 11px;
-    color: var(--fg3);
+    margin-top: 2px;
 }
 
-/* Reply list */
+/* Toggle switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 14px;
+    transition: background 0.3s;
+    display: block;
+}
+.toggle-thumb {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    transition: transform 0.3s;
+    display: block;
+}
+.toggle-switch input:checked ~ .toggle-track { background: var(--accent); }
+.toggle-switch input:checked ~ .toggle-track .toggle-thumb { transform: translateX(22px); }
+
+/* 延迟 & 条数设置 */
+.rl-setting-rows {
+    background: var(--bg3);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.rl-setting-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.rl-setting-name {
+    font-size: 13px;
+    color: var(--fg2);
+    min-width: 28px;
+    flex-shrink: 0;
+}
+.rl-option-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.rl-option-btn {
+    padding: 6px 13px;
+    border-radius: 8px;
+    background: var(--bg2);
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font);
+    color: var(--fg2);
+    transition: all 0.15s;
+}
+.rl-option-btn.active {
+    background: rgba(var(--accent-rgb,244,166,179),0.15);
+    border-color: var(--accent);
+    color: var(--fg);
+    font-weight: 600;
+}
+.rl-option-btn:active { transform: scale(0.94); }
+
+/* 词条列表 */
 .rl-list {
     display: flex;
     flex-direction: column;
     gap: 7px;
-    max-height: 360px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 8px;
+    padding-bottom: 4px;
 }
 .rl-empty {
     text-align: center;
-    padding: 32px 16px;
+    padding: 28px 16px;
     color: var(--fg3);
     font-size: 14px;
     line-height: 1.8;
 }
-.rl-empty-icon { font-size: 36px; display: block; margin-bottom: 8px; opacity: 0.5; }
+.rl-empty-icon { font-size: 36px; display: block; margin-bottom: 8px; opacity: 0.45; }
 
-/* Reply entry card */
+/* 词条卡片 */
 .rl-card {
     background: var(--bg3);
     border-radius: 13px;
     border: 1.5px solid transparent;
     overflow: hidden;
-    transition: all 0.2s;
-    animation: fadeIn 0.2s ease;
 }
-.rl-card:active { border-color: rgba(var(--accent-rgb,244,166,179),0.3); }
 .rl-card-view {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 12px 12px 12px 14px;
+    padding: 12px 10px 12px 14px;
 }
 .rl-card-num {
     font-size: 11px;
     color: var(--fg3);
     min-width: 18px;
     text-align: right;
-    margin-top: 2px;
+    padding-top: 2px;
     flex-shrink: 0;
+    line-height: 1.5;
 }
 .rl-card-text {
     flex: 1;
     min-width: 0;
-    font-size: 14px;
+    font-size: 15px;
     color: var(--fg);
     line-height: 1.55;
     word-break: break-word;
@@ -2271,37 +2380,39 @@ html[data-theme="light"] .toast {
 }
 .rl-card-actions {
     display: flex;
-    gap: 4px;
+    gap: 2px;
     flex-shrink: 0;
-    align-items: center;
+    align-items: flex-start;
+    padding-top: 2px;
 }
 .rl-act-btn {
-    width: 30px; height: 30px;
+    width: 32px; height: 32px;
     border-radius: 8px;
     background: transparent;
     border: none;
     cursor: pointer;
     color: var(--fg3);
-    font-size: 13px;
+    font-size: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.15s;
 }
 .rl-act-btn:active { background: var(--border); color: var(--fg); }
-.rl-act-btn.send:active { color: var(--accent); }
+.rl-act-btn.send:active  { color: var(--accent); }
 .rl-act-btn.danger:active { color: #e05252; }
 
-/* Inline edit mode */
+/* 行内编辑 */
 .rl-card-edit {
     padding: 10px 12px;
+    border-top: 1px solid var(--border);
 }
 .rl-edit-input {
     width: 100%;
     padding: 9px 12px;
     border-radius: 10px;
     background: var(--bg2);
-    border: 1.5px solid rgba(var(--accent-rgb,244,166,179),0.4);
+    border: 1.5px solid rgba(var(--accent-rgb,244,166,179),0.45);
     outline: none;
     font-size: 14px;
     font-family: var(--font);
@@ -2310,10 +2421,7 @@ html[data-theme="light"] .toast {
     line-height: 1.5;
     margin-bottom: 8px;
 }
-.rl-edit-btns {
-    display: flex;
-    gap: 8px;
-}
+.rl-edit-btns { display: flex; gap: 8px; }
 .rl-edit-btn {
     flex: 1;
     padding: 9px;
@@ -2329,135 +2437,7 @@ html[data-theme="light"] .toast {
 .rl-edit-btn.save   { background: var(--accent); color: white; }
 .rl-edit-btn:active { transform: scale(0.97); }
 
-/* Reply Settings Tab */
-.rl-toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 4px 0;
-}
-.rl-toggle-desc { flex: 1; }
-.rl-toggle-title {
-    display: block;
-    font-size: 15px;
-    color: var(--fg);
-    font-weight: 500;
-    margin-bottom: 2px;
-}
-.rl-toggle-sub {
-    display: block;
-    font-size: 12px;
-    color: var(--fg3);
-}
-
-/* Toggle switch */
-.toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: 50px;
-    height: 28px;
-    flex-shrink: 0;
-    cursor: pointer;
-}
-.toggle-switch input { opacity: 0; width: 0; height: 0; }
-.toggle-track {
-    position: absolute;
-    inset: 0;
-    background: var(--border);
-    border-radius: 14px;
-    transition: background 0.3s;
-    display: block;
-}
-.toggle-thumb {
-    position: absolute;
-    top: 3px; left: 3px;
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    background: white;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-    transition: transform 0.3s;
-    display: block;
-}
-.toggle-switch input:checked ~ .toggle-track { background: var(--accent); }
-.toggle-switch input:checked ~ .toggle-track .toggle-thumb { transform: translateX(22px); }
-
-/* Option buttons (delay / count) */
-.rl-option-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-.rl-option-btn {
-    padding: 8px 16px;
-    border-radius: 10px;
-    background: var(--bg3);
-    border: 2px solid transparent;
-    cursor: pointer;
-    font-size: 14px;
-    font-family: var(--font);
-    color: var(--fg2);
-    transition: all 0.2s;
-}
-.rl-option-btn.active {
-    background: rgba(var(--accent-rgb,244,166,179),0.12);
-    border-color: var(--accent);
-    color: var(--fg);
-    font-weight: 600;
-}
-.rl-option-btn:active { transform: scale(0.95); }
-
-/* Random preview box */
-.rl-preview-box {
-    margin-top: 20px;
-    background: var(--bg3);
-    border-radius: 14px;
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-.rl-preview-label {
-    font-size: 12px;
-    color: var(--fg2);
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.rl-preview-label i { color: var(--accent); }
-.rl-preview-content {
-    font-size: 14px;
-    color: var(--fg);
-    line-height: 1.6;
-    min-height: 40px;
-    padding: 10px 12px;
-    background: var(--bg2);
-    border-radius: 10px;
-    border-left: 3px solid var(--accent);
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-.rl-preview-btn {
-    padding: 10px;
-    border-radius: 10px;
-    background: var(--accent);
-    border: none;
-    cursor: pointer;
-    font-size: 14px;
-    font-family: var(--font);
-    font-weight: 600;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    transition: all 0.2s;
-    box-shadow: 0 3px 10px rgba(var(--accent-rgb,244,166,179),0.3);
-}
-.rl-preview-btn:active { transform: scale(0.97); }
-
-/* Import textarea */
+/* 批量导入 */
 .rl-import-tip {
     font-size: 13px;
     color: var(--fg2);
@@ -2480,19 +2460,6 @@ html[data-theme="light"] .toast {
     transition: border-color 0.2s;
 }
 .rl-import-textarea:focus { border-color: rgba(var(--accent-rgb,244,166,179),0.5); }
-
-/* Auto-reply indicator bubble in chat */
-.auto-reply-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    color: var(--fg3);
-    background: var(--bg3);
-    padding: 2px 7px;
-    border-radius: 8px;
-    margin-top: 2px;
-}
 
 /* ============================================================
    SAFE AREA / NOTCH HANDLING

@@ -1309,7 +1309,10 @@ function createSplashStars() {
    ============================================================ */
 
 function openReplyModal() {
-    showModal($('reply-modal'), 'reply-list');
+    const modal = $('reply-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
     renderReplyList();
     syncReplySettings();
 }
@@ -1539,30 +1542,50 @@ function setupListeners() {
     $('ann-edit-btn') && $('ann-edit-btn').addEventListener('click', () => openSettings('profile'));
 
     // ── Reply Library ──
+    // 关闭按钮（reply-modal 用自己的 id 绑定，不走 data-close 委托）
+    $('reply-modal-close').addEventListener('click', () => {
+        $('reply-modal').classList.add('hidden');
+        document.body.style.overflow = '';
+    });
+    $('reply-modal-overlay').addEventListener('click', () => {
+        $('reply-modal').classList.add('hidden');
+        document.body.style.overflow = '';
+    });
+    $('rl-import-close') && $('rl-import-close').addEventListener('click', () => {
+        $('rl-import-modal').classList.add('hidden');
+        document.body.style.overflow = '';
+    });
+    $('rl-import-overlay') && $('rl-import-overlay').addEventListener('click', () => {
+        $('rl-import-modal').classList.add('hidden');
+        document.body.style.overflow = '';
+    });
+
+    // 添加词条
     $('rl-add-btn').addEventListener('click', () => {
         const input = $('rl-add-input');
         const text = input.value.trim();
         if (!text) { toast('请输入词条内容', 'warning'); return; }
         if (addReplyEntry(text)) {
             input.value = '';
-            input.style.height = '';
             toast('词条已添加 ✓', 'success', 1500);
         }
     });
     $('rl-add-input').addEventListener('keydown', e => {
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-            $('rl-add-btn').click();
-        }
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('rl-add-btn').click();
     });
+
+    // 批量导入
     $('rl-import-btn').addEventListener('click', () => {
         $('rl-import-textarea').value = '';
-        showModal($('rl-import-modal'));
+        $('rl-import-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
     });
     $('rl-import-confirm').addEventListener('click', () => {
-        const text = $('rl-import-textarea').value;
-        bulkImportReplies(text);
-        closeModal($('rl-import-modal'));
+        bulkImportReplies($('rl-import-textarea').value);
+        $('rl-import-modal').classList.add('hidden');
     });
+
+    // 导出 / 恢复默认 / 清空
     $('rl-export-btn').addEventListener('click', exportReplyLibrary);
     $('rl-reset-btn').addEventListener('click', resetReplyLibrary);
     $('rl-clear-btn').addEventListener('click', () => {
@@ -1574,12 +1597,14 @@ function setupListeners() {
         toast('词条库已清空', 'info');
     });
 
-    // Auto-reply settings
+    // 自动回复开关
     $('auto-reply-toggle').addEventListener('change', e => {
         state.settings.autoReply = e.target.checked;
         scheduleSave();
         toast(e.target.checked ? '自动回复已开启 ✓' : '自动回复已关闭', 'info', 1500);
     });
+
+    // 延迟选项
     qa('#delay-options .rl-option-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             state.settings.autoReplyDelay = +btn.dataset.delay;
@@ -1588,6 +1613,8 @@ function setupListeners() {
             scheduleSave();
         });
     });
+
+    // 条数选项
     qa('#count-options .rl-option-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             state.settings.autoReplyCount = +btn.dataset.count;
@@ -1596,7 +1623,6 @@ function setupListeners() {
             scheduleSave();
         });
     });
-    $('rl-preview-btn').addEventListener('click', randomPreviewReplies);
 
     // Partner / my avatar click -> settings
     $('partner-avatar-btn').addEventListener('click', () => openSettings('profile'));
