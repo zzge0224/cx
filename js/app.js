@@ -126,7 +126,6 @@ let state = {
     replyLibrary: [],   // [{ id, text }, ...]
     playlist: [],
     fortuneHistory: [],
-    currentSender: 'me',
     currentMoodMonth: { year: new Date().getFullYear(), month: new Date().getMonth() },
     selectedMoodDate: null,
     selectedMoodEmoji: null,
@@ -434,14 +433,11 @@ function handleSend() {
     const input = $('message-input');
     const text = input.value.trim();
     if (!text) return;
-    sendMessage(text, state.currentSender);
+    sendMessage(text, 'me');
     input.value = '';
     input.style.height = '';
     closeEmojiPanel();
-    // Only auto-reply when user sends as themselves
-    if (state.currentSender === 'me') {
-        triggerAutoReply();
-    }
+    triggerAutoReply();
 }
 
 /* ── Auto-reply from reply library ── */
@@ -518,7 +514,7 @@ async function handleImageFiles(files) {
         }
         try {
             const base64 = await compressImage(file);
-            sendMessage(base64, state.currentSender, 'image');
+            sendMessage(base64, 'me', 'image');
         } catch (e) {
             toast('图片处理失败', 'error');
         }
@@ -861,7 +857,7 @@ function sendFortune() {
     if (!state.currentFortuneCard) return;
     const c = state.currentFortuneCard;
     const text = `[${c.name}${c.isReversed ? '（逆位）' : ''}] ${c.isReversed ? c.reversed : c.upright}`;
-    sendMessage(text, state.currentSender, 'fortune', {
+    sendMessage(text, 'me', 'fortune', {
         cardName: c.name + (c.isReversed ? '（逆位）' : ''),
         cardSymbol: c.symbol,
     });
@@ -1488,25 +1484,12 @@ function setupListeners() {
     $('coin').addEventListener('click', tossCoin);
     $('coin-send').addEventListener('click', () => {
         if (!state.lastCoinResult) { tossCoin(); return; }
-        sendMessage(`🪙 硬币结果：${state.lastCoinResult}`, state.currentSender, 'system');
+        sendMessage(`🪙 硬币结果：${state.lastCoinResult}`, 'me', 'system');
         $('coin-overlay').classList.add('hidden');
         state.lastCoinResult = null;
         toast('结果已发送', 'success', 1500);
     });
 
-    // Sender toggle
-    $('send-as-me').addEventListener('click', () => {
-        state.currentSender = 'me';
-        $('send-as-me').classList.add('active');
-        $('send-as-partner').classList.remove('active');
-        $('message-input').placeholder = '说点什么…';
-    });
-    $('send-as-partner').addEventListener('click', () => {
-        state.currentSender = 'partner';
-        $('send-as-partner').classList.add('active');
-        $('send-as-me').classList.remove('active');
-        $('message-input').placeholder = `以 ${state.settings.partnerName} 的身份说话…`;
-    });
 
     // Reply preview close
     $('reply-preview-close').addEventListener('click', cancelReply);
@@ -1784,7 +1767,7 @@ function setupListeners() {
     $('lightbox-close').addEventListener('click', closeLightbox);
     $('lightbox-save').addEventListener('click', () => {
         const src = $('lightbox-img').src;
-        if (src) { sendMessage(src, state.currentSender, 'image'); closeLightbox(); }
+        if (src) { sendMessage(src, 'me', 'image'); closeLightbox(); }
     });
 
     // Profile emoji pickers (avatar preview click selects next emoji)
