@@ -2,7 +2,6 @@
    传讯 Mobile — app.js
    All-in-one application logic
    ============================================================ */
-
 'use strict';
 
 /* ── Constants ── */
@@ -50,6 +49,35 @@ const CHAT_EMOJIS = [
     '👍','👏','🙌','🤝','💪','🫶','🤞','🙏','✌️','🤙',
 ];
 
+/* ── Default Reply Library ── */
+const DEFAULT_REPLIES = [
+    '想你了 💕',
+    '你最近怎么样呀？',
+    '我在想你呢',
+    '今天过得好吗？',
+    '你知道吗，我很喜欢你',
+    '能见到你就好了',
+    '希望你今天一切都好',
+    '想要抱抱你',
+    '你笑起来好好看',
+    '我好喜欢你哦 🥰',
+    '你今天也很可爱呢',
+    '最近有点想你',
+    '你有空吗？好想和你聊聊天',
+    '你是我很重要的人',
+    '谢谢你一直在',
+    '想和你一起看星星',
+    '你有没有在想我？',
+    '见到你的时候总是会不自觉地笑',
+    '你睡了吗？做个好梦',
+    '今天遇到了一件有趣的事，只想告诉你',
+    '无论什么时候，我都支持你',
+    '你让我觉得，生活是很美好的事',
+    '等我哦',
+    '我在呢',
+    '好想你 🌙',
+];
+
 const TAROT_CARDS = [
     { name: '愚者', num: 'O',     symbol: '🃏', upright: '新的开始，纯真，冒险，无限可能', reversed: '鲁莽，迷失，犹豫不前' },
     { name: '魔术师', num: 'I',   symbol: '✨', upright: '意志力，创造力，技能，行动', reversed: '操控，意志力不足，浪费才能' },
@@ -90,8 +118,12 @@ let state = {
         annDate: '',
         annName: '在一起',
         bgImage: '',
+        autoReply: true,
+        autoReplyDelay: 1500,
+        autoReplyCount: 1,
     },
     moods: {},
+    replyLibrary: [],   // [{ id, text }, ...]
     playlist: [],
     fortuneHistory: [],
     currentSender: 'me',
@@ -134,6 +166,7 @@ async function saveData() {
             messages: state.messages,
             settings: state.settings,
             moods: state.moods,
+            replyLibrary: state.replyLibrary,
             playlist: state.playlist.map(t => ({ name: t.name })), // only names, not blobs
             fortuneHistory: state.fortuneHistory.slice(0, 50),
         };
@@ -160,6 +193,7 @@ async function loadData() {
         if (data.messages)       state.messages       = data.messages;
         if (data.settings)       state.settings       = { ...state.settings, ...data.settings };
         if (data.moods)          state.moods          = data.moods;
+        if (data.replyLibrary)   state.replyLibrary   = data.replyLibrary;
         if (data.fortuneHistory) state.fortuneHistory = data.fortuneHistory;
     } catch (e) {
         console.warn('[load] error:', e);
@@ -404,6 +438,37 @@ function handleSend() {
     input.value = '';
     input.style.height = '';
     closeEmojiPanel();
+    // Only auto-reply when user sends as themselves
+    if (state.currentSender === 'me') {
+        triggerAutoReply();
+    }
+}
+
+/* ── Auto-reply from reply library ── */
+let _autoReplyTimer = null;
+function triggerAutoReply() {
+    if (!state.settings.autoReply) return;
+    if (state.replyLibrary.length === 0) return;
+    clearTimeout(_autoReplyTimer);
+
+    const delay = state.settings.autoReplyDelay || 1500;
+    const count = Math.min(state.settings.autoReplyCount || 1, state.replyLibrary.length);
+
+    // Show typing indicator while "partner" is composing
+    showTyping(delay - 100);
+
+    _autoReplyTimer = setTimeout(() => {
+        // Randomly shuffle and pick `count` entries
+        const shuffled = [...state.replyLibrary].sort(() => Math.random() - 0.5);
+        const picks = shuffled.slice(0, count);
+        picks.forEach((entry, i) => {
+            setTimeout(() => {
+                sendMessage(entry.text, 'partner');
+                // Show typing again between multiple replies
+                if (i < picks.length - 1) showTyping(350);
+            }, i * 500);
+        });
+    }, delay);
 }
 
 /* ── Typing simulation ── */
@@ -999,11 +1064,13 @@ function clearAllData() {
     state.messages       = [];
     state.moods          = {};
     state.fortuneHistory = [];
+    state.replyLibrary   = DEFAULT_REPLIES.map((text, i) => ({ id: 'default_' + i, text }));
     state.settings = {
         myName: '宝贝', partnerName: '亲爱的',
         myEmoji: '💛', partnerEmoji: '🌸', partnerStatus: '在线',
         theme: 'light', color: 'pink', fontSize: 16,
         annDate: '', annName: '在一起', bgImage: '',
+        autoReply: true, autoReplyDelay: 1500, autoReplyCount: 1,
     };
     applySettings();
     renderMessages();
@@ -1206,6 +1273,186 @@ function createSplashStars() {
     }
 }
 
+/* ============================================================
+   REPLY LIBRARY
+   ============================================================ */
+
+function openReplyModal() {
+    showModal($('reply-modal'), 'reply-list');
+    renderReplyList();
+    syncReplySettings();
+}
+
+function renderReplyList() {
+    const list = $('rl-list');
+    const countEl = $('rl-count');
+    if (!list) return;
+    list.innerHTML = '';
+    if (countEl) countEl.textContent = `共 ${state.replyLibrary.length} 条`;
+
+    if (state.replyLibrary.length === 0) {
+        list.innerHTML = `<div class="rl-empty">
+            <span class="rl-empty-icon">📭</span>
+            词条库为空<br>
+            <small>添加词条后，对方会自动从中随机回复</small>
+        </div>`;
+        return;
+    }
+
+    state.replyLibrary.forEach((entry, idx) => {
+        list.appendChild(createReplyCard(entry, idx));
+    });
+}
+
+function createReplyCard(entry, idx) {
+    const card = document.createElement('div');
+    card.className = 'rl-card';
+    card.dataset.idx = idx;
+
+    // View mode
+    const view = document.createElement('div');
+    view.className = 'rl-card-view';
+    view.innerHTML = `
+        <span class="rl-card-num">${idx + 1}</span>
+        <span class="rl-card-text">${escapeHtml(entry.text)}</span>
+        <div class="rl-card-actions">
+            <button class="rl-act-btn send" title="发送到对话"><i class="fas fa-paper-plane"></i></button>
+            <button class="rl-act-btn edit" title="编辑"><i class="fas fa-pen"></i></button>
+            <button class="rl-act-btn danger delete" title="删除"><i class="fas fa-times"></i></button>
+        </div>
+    `;
+
+    // Edit mode (hidden)
+    const editMode = document.createElement('div');
+    editMode.className = 'rl-card-edit hidden';
+    editMode.innerHTML = `
+        <textarea class="rl-edit-input" rows="3">${escapeHtml(entry.text)}</textarea>
+        <div class="rl-edit-btns">
+            <button class="rl-edit-btn cancel">取消</button>
+            <button class="rl-edit-btn save">保存</button>
+        </div>
+    `;
+
+    card.appendChild(view);
+    card.appendChild(editMode);
+
+    // Events
+    view.querySelector('.rl-act-btn.send').addEventListener('click', () => {
+        sendMessage(entry.text, 'partner');
+        closeModal($('reply-modal'));
+        toast('词条已发送', 'success', 1500);
+    });
+    view.querySelector('.rl-act-btn.edit').addEventListener('click', () => {
+        view.classList.add('hidden');
+        editMode.classList.remove('hidden');
+        editMode.querySelector('.rl-edit-input').focus();
+    });
+    view.querySelector('.rl-act-btn.delete').addEventListener('click', () => {
+        deleteReplyEntry(idx);
+    });
+    editMode.querySelector('.rl-edit-btn.cancel').addEventListener('click', () => {
+        editMode.classList.add('hidden');
+        view.classList.remove('hidden');
+    });
+    editMode.querySelector('.rl-edit-btn.save').addEventListener('click', () => {
+        const newText = editMode.querySelector('.rl-edit-input').value.trim();
+        if (!newText) { toast('词条内容不能为空', 'warning'); return; }
+        editReplyEntry(idx, newText);
+    });
+
+    // Long press to quick-send
+    let pressTimer;
+    view.addEventListener('touchstart', () => {
+        pressTimer = setTimeout(() => {
+            sendMessage(entry.text, 'partner');
+            closeModal($('reply-modal'));
+            toast('词条已发送 ✓', 'success', 1500);
+        }, 600);
+    }, { passive: true });
+    view.addEventListener('touchend',  () => clearTimeout(pressTimer));
+    view.addEventListener('touchmove', () => clearTimeout(pressTimer));
+
+    return card;
+}
+
+function addReplyEntry(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    state.replyLibrary.push({ id: Date.now().toString(), text: trimmed });
+    renderReplyList();
+    scheduleSave();
+    return true;
+}
+
+function editReplyEntry(idx, newText) {
+    if (idx < 0 || idx >= state.replyLibrary.length) return;
+    state.replyLibrary[idx].text = newText;
+    renderReplyList();
+    scheduleSave();
+    toast('词条已更新', 'success', 1500);
+}
+
+function deleteReplyEntry(idx) {
+    state.replyLibrary.splice(idx, 1);
+    renderReplyList();
+    scheduleSave();
+    toast('已删除', 'info', 1200);
+}
+
+function bulkImportReplies(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length === 0) { toast('未发现有效词条', 'warning'); return; }
+    lines.forEach(line => state.replyLibrary.push({ id: Date.now().toString() + Math.random(), text: line }));
+    renderReplyList();
+    scheduleSave();
+    toast(`已导入 ${lines.length} 条词条`, 'success');
+}
+
+function exportReplyLibrary() {
+    if (state.replyLibrary.length === 0) { toast('词条库为空', 'warning'); return; }
+    const text = state.replyLibrary.map(e => e.text).join('\n');
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `词条库_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('词条库已导出', 'success');
+}
+
+function resetReplyLibrary() {
+    if (!confirm(`将恢复为 ${DEFAULT_REPLIES.length} 条默认词条，现有词条将被替换，确认吗？`)) return;
+    state.replyLibrary = DEFAULT_REPLIES.map((text, i) => ({ id: 'default_' + i, text }));
+    renderReplyList();
+    scheduleSave();
+    toast('已恢复默认词条', 'success');
+}
+
+function syncReplySettings() {
+    const toggle = $('auto-reply-toggle');
+    if (toggle) toggle.checked = !!state.settings.autoReply;
+    // Highlight active delay
+    qa('#delay-options .rl-option-btn').forEach(btn => {
+        btn.classList.toggle('active', +btn.dataset.delay === state.settings.autoReplyDelay);
+    });
+    // Highlight active count
+    qa('#count-options .rl-option-btn').forEach(btn => {
+        btn.classList.toggle('active', +btn.dataset.count === state.settings.autoReplyCount);
+    });
+}
+
+function randomPreviewReplies() {
+    if (state.replyLibrary.length === 0) {
+        $('rl-preview-content').textContent = '词条库为空，请先添加词条';
+        return;
+    }
+    const count = Math.min(state.settings.autoReplyCount || 1, state.replyLibrary.length);
+    const shuffled = [...state.replyLibrary].sort(() => Math.random() - 0.5);
+    const picks = shuffled.slice(0, count);
+    $('rl-preview-content').textContent = picks.map(e => e.text).join('\n\n');
+}
+
 /* ── Event Listeners ── */
 function setupListeners() {
     // Send button
@@ -1269,7 +1516,68 @@ function setupListeners() {
     $('fortune-btn').addEventListener('click', openFortuneModal);
     $('mood-btn').addEventListener('click', openMoodModal);
     $('music-btn').addEventListener('click', openMusicModal);
+    $('reply-lib-btn').addEventListener('click', openReplyModal);
     $('ann-edit-btn') && $('ann-edit-btn').addEventListener('click', () => openSettings('profile'));
+
+    // ── Reply Library ──
+    $('rl-add-btn').addEventListener('click', () => {
+        const input = $('rl-add-input');
+        const text = input.value.trim();
+        if (!text) { toast('请输入词条内容', 'warning'); return; }
+        if (addReplyEntry(text)) {
+            input.value = '';
+            input.style.height = '';
+            toast('词条已添加 ✓', 'success', 1500);
+        }
+    });
+    $('rl-add-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            $('rl-add-btn').click();
+        }
+    });
+    $('rl-import-btn').addEventListener('click', () => {
+        $('rl-import-textarea').value = '';
+        showModal($('rl-import-modal'));
+    });
+    $('rl-import-confirm').addEventListener('click', () => {
+        const text = $('rl-import-textarea').value;
+        bulkImportReplies(text);
+        closeModal($('rl-import-modal'));
+    });
+    $('rl-export-btn').addEventListener('click', exportReplyLibrary);
+    $('rl-reset-btn').addEventListener('click', resetReplyLibrary);
+    $('rl-clear-btn').addEventListener('click', () => {
+        if (state.replyLibrary.length === 0) { toast('词条库已经是空的', 'info'); return; }
+        if (!confirm('确定要清空所有词条吗？')) return;
+        state.replyLibrary = [];
+        renderReplyList();
+        scheduleSave();
+        toast('词条库已清空', 'info');
+    });
+
+    // Auto-reply settings
+    $('auto-reply-toggle').addEventListener('change', e => {
+        state.settings.autoReply = e.target.checked;
+        scheduleSave();
+        toast(e.target.checked ? '自动回复已开启 ✓' : '自动回复已关闭', 'info', 1500);
+    });
+    qa('#delay-options .rl-option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.settings.autoReplyDelay = +btn.dataset.delay;
+            qa('#delay-options .rl-option-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            scheduleSave();
+        });
+    });
+    qa('#count-options .rl-option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.settings.autoReplyCount = +btn.dataset.count;
+            qa('#count-options .rl-option-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            scheduleSave();
+        });
+    });
+    $('rl-preview-btn').addEventListener('click', randomPreviewReplies);
 
     // Partner / my avatar click -> settings
     $('partner-avatar-btn').addEventListener('click', () => openSettings('profile'));
@@ -1544,11 +1852,17 @@ async function init() {
         initSplash();
     }
 
+    // Initialize reply library with defaults if empty
+    if (state.replyLibrary.length === 0) {
+        state.replyLibrary = DEFAULT_REPLIES.map((text, i) => ({ id: 'default_' + i, text }));
+    }
+
     // Apply settings
     applySettings();
     initEmojiPanel();
     initSettingsUI();
     setupListeners();
+    syncReplySettings();
 
     // Mark selected emoji in pickers
     const myEIdx   = AVATAR_EMOJIS.indexOf(state.settings.myEmoji);
