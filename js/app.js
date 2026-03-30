@@ -194,6 +194,7 @@ async function loadData() {
         if (data.moods)          state.moods          = data.moods;
         if (data.replyLibrary)   state.replyLibrary   = data.replyLibrary;
         if (data.fortuneHistory) state.fortuneHistory = data.fortuneHistory;
+        normalizeReplyLibrary();
     } catch (e) {
         console.warn('[load] error:', e);
     }
@@ -225,6 +226,30 @@ function escapeHtml(str) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+
+/** 从任意存储格式取出词条正文（兼容字符串、content 字段等） */
+function getReplyEntryText(entry) {
+    if (entry == null) return '';
+    if (typeof entry === 'string') return entry.trim();
+    if (typeof entry === 'object') {
+        const t = entry.text ?? entry.content ?? entry.body ?? entry.reply ?? entry.value;
+        return String(t != null ? t : '').trim();
+    }
+    return String(entry).trim();
+}
+
+/** 统一为 { id, text }，避免词条库不显示 */
+function normalizeReplyLibrary() {
+    if (!Array.isArray(state.replyLibrary)) state.replyLibrary = [];
+    state.replyLibrary = state.replyLibrary.map((raw, i) => {
+        let text = getReplyEntryText(raw);
+        if (!text) text = '（未设置内容）';
+        let id = 'e_' + i;
+        if (raw && typeof raw === 'object' && raw.id != null) id = String(raw.id);
+        else id = 'e_' + Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2, 8);
+        return { id, text };
+    });
 }
 
 /* ── Message rendering ── */
@@ -636,9 +661,17 @@ function openSettings(tab = 'appearance') {
     showModal(modal, tab);
 }
 
-function switchTab(tabName) {
-    qa('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
-    qa('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${tabName}`));
+/**
+ * 仅在指定弹窗内切换标签（避免「设置」与「词条库」两套 .tab/.tab-panel 互相冲突导致内容不显示）
+ */
+function switchTab(tabName, modalRoot) {
+    const root = modalRoot || document;
+    root.querySelectorAll('.tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === tabName);
+    });
+    root.querySelectorAll('.tab-panel').forEach(p => {
+        p.classList.toggle('active', p.id === `tab-${tabName}`);
+    });
 }
 
 function updateStats() {
@@ -1043,7 +1076,9 @@ async function importData(file) {
         if (data.messages)       state.messages       = data.messages;
         if (data.settings)       state.settings       = { ...state.settings, ...data.settings };
         if (data.moods)          state.moods          = data.moods;
+        if (data.replyLibrary)   state.replyLibrary   = data.replyLibrary;
         if (data.fortuneHistory) state.fortuneHistory = data.fortuneHistory;
+        normalizeReplyLibrary();
         applySettings();
         renderMessages();
         scrollToBottom(false);
@@ -1080,7 +1115,7 @@ function showModal(modal, tab) {
     if (!modal) return;
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
-    if (tab) switchTab(tab);
+    if (tab) switchTab(tab, modal);
 }
 
 function closeModal(modal) {
@@ -1308,9 +1343,10 @@ function createReplyCard(entry, idx) {
     // View mode
     const view = document.createElement('div');
     view.className = 'rl-card-view';
+    const entryText = getReplyEntryText(entry);
     view.innerHTML = `
         <span class="rl-card-num">${idx + 1}</span>
-        <span class="rl-card-text">${escapeHtml(entry.text)}</span>
+        <span class="rl-card-text">${escapeHtml(entryText)}</span>
         <div class="rl-card-actions">
             <button class="rl-act-btn send" title="发送到对话"><i class="fas fa-paper-plane"></i></button>
             <button class="rl-act-btn edit" title="编辑"><i class="fas fa-pen"></i></button>
@@ -1322,7 +1358,7 @@ function createReplyCard(entry, idx) {
     const editMode = document.createElement('div');
     editMode.className = 'rl-card-edit hidden';
     editMode.innerHTML = `
-        <textarea class="rl-edit-input" rows="3">${escapeHtml(entry.text)}</textarea>
+        <textarea class="rl-edit-input" rows="3">${escapeHtml(entryText)}</textarea>
         <div class="rl-edit-btns">
             <button class="rl-edit-btn cancel">取消</button>
             <button class="rl-edit-btn save">保存</button>
@@ -1334,7 +1370,7 @@ function createReplyCard(entry, idx) {
 
     // Events
     view.querySelector('.rl-act-btn.send').addEventListener('click', () => {
-        sendMessage(entry.text, 'partner');
+        sendMessage(entryText, 'partner');
         closeModal($('reply-modal'));
         toast('词条已发送', 'success', 1500);
     });
@@ -1360,7 +1396,7 @@ function createReplyCard(entry, idx) {
     let pressTimer;
     view.addEventListener('touchstart', () => {
         pressTimer = setTimeout(() => {
-            sendMessage(entry.text, 'partner');
+            sendMessage(entryText, 'partner');
             closeModal($('reply-modal'));
             toast('词条已发送 ✓', 'success', 1500);
         }, 600);
@@ -1572,9 +1608,12 @@ function setupListeners() {
         if (closeTarget) closeModal($(closeTarget));
     });
 
-    // Settings tabs
+    // Settings / 词条库 tabs（必须在对应 .modal 内切换，否则会互相覆盖 active）
     qa('.tab').forEach(t => {
-        t.addEventListener('click', () => switchTab(t.dataset.tab));
+        t.addEventListener('click', () => {
+            const root = t.closest('.modal');
+            if (root) switchTab(t.dataset.tab, root);
+        });
     });
 
     // Theme toggle
@@ -1839,6 +1878,7 @@ async function init() {
     if (state.replyLibrary.length === 0) {
         state.replyLibrary = DEFAULT_REPLIES.map((text, i) => ({ id: 'default_' + i, text }));
     }
+    normalizeReplyLibrary();
 
     // Apply settings
     applySettings();

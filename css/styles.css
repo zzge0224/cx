@@ -2262,6 +2262,7 @@ html[data-theme="light"] .toast {
 }
 .rl-card-text {
     flex: 1;
+    min-width: 0;
     font-size: 14px;
     color: var(--fg);
     line-height: 1.55;
